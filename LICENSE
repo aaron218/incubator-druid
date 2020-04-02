@@ -201,9 +201,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   APACHE DRUID (INCUBATING) SUBCOMPONENTS:
+   APACHE DRUID SUBCOMPONENTS:
 
-   Apache Druid (incubating) includes a number of subcomponents with
+   Apache Druid includes a number of subcomponents with
    separate copyright notices and license terms. Your use of the source
    code for these subcomponents is subject to the terms and
    conditions of the following licenses.
@@ -306,6 +306,13 @@ SOURCE/JAVA-CORE
     This product contains Porter stemmer adapted from a Javascript Porter Stemmer (https://github.com/kristopolous/Porter-Stemmer)
      which is available under a BSD-3-Clause License. For details, see licenses/src/porter-stemmer.BSD3.
       * processing/src/test/java/org/apache/druid/query/extraction/JavaScriptExtractionFnTest.java
+
+SOURCE/EXTENSIONS/druid-basic-security
+    This product contains an LDAP string encoding function from OWASP ESAPI, copyright The OWASP Foundation
+     (https://github.com/ESAPI/esapi-java-legacy) which is available under the BSD-3-Clause License. For details, see
+     licenses/src/esapi.BSD3.
+      * extensions-core/druid-basic-security/src/main/java/org/apache/druid/security/basic/authentication/validator/LDAPCredentialsValidator.java
+
 
 Public Domain
 ================================

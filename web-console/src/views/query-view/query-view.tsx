@@ -81,6 +81,8 @@ interface QueryWithContext {
 
 export interface QueryViewProps {
   initQuery: string | undefined;
+  defaultQueryContext?: Record<string, any>;
+  mandatoryQueryContext?: Record<string, any>;
 }
 
 export interface QueryViewState {
@@ -131,13 +133,6 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
     return /EXPLAIN\sPLAN\sFOR/i.test(query);
   }
 
-  static wrapInLimitIfNeeded(query: string, limit: number | undefined): string {
-    query = QueryView.trimSemicolon(query);
-    if (!limit) return query;
-    if (QueryView.isExplainQuery(query)) return query;
-    return `SELECT * FROM (${query}\n) LIMIT ${limit}`;
-  }
-
   static wrapInExplainIfNeeded(query: string): string {
     query = QueryView.trimSemicolon(query);
     if (QueryView.isExplainQuery(query)) return query;
@@ -182,11 +177,13 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
 
   constructor(props: QueryViewProps, context: any) {
     super(props, context);
+    const { mandatoryQueryContext } = props;
 
     const queryString = props.initQuery || localStorageGet(LocalStorageKeys.QUERY_KEY) || '';
     const parsedQuery = queryString ? parser(queryString) : undefined;
 
-    const queryContext = localStorageGetJson(LocalStorageKeys.QUERY_CONTEXT) || {};
+    const queryContext =
+      localStorageGetJson(LocalStorageKeys.QUERY_CONTEXT) || props.defaultQueryContext || {};
 
     const possibleQueryHistory = localStorageGetJson(LocalStorageKeys.QUERY_HISTORY);
     const queryHistory = Array.isArray(possibleQueryHistory) ? possibleQueryHistory : [];
@@ -251,17 +248,21 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
         if (QueryView.isJsonLike(queryString)) {
           jsonQuery = Hjson.parse(queryString);
         } else {
-          const actualQuery = QueryView.wrapInLimitIfNeeded(queryString, wrapQueryLimit);
-
           jsonQuery = {
-            query: actualQuery,
+            query: queryString,
             resultFormat: 'array',
             header: true,
           };
         }
 
-        if (!isEmptyContext(queryContext)) {
-          jsonQuery.context = Object.assign(jsonQuery.context || {}, queryContext);
+        if (!isEmptyContext(queryContext) || wrapQueryLimit || mandatoryQueryContext) {
+          jsonQuery.context = Object.assign(
+            {},
+            jsonQuery.context || {},
+            queryContext,
+            mandatoryQueryContext || {},
+          );
+          jsonQuery.context.sqlOuterLimit = wrapQueryLimit;
         }
 
         let rawQueryResult: unknown;
@@ -320,14 +321,15 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
       processQuery: async (queryWithContext: QueryWithContext) => {
         const { queryString, queryContext, wrapQueryLimit } = queryWithContext;
 
-        const actualQuery = QueryView.wrapInLimitIfNeeded(queryString, wrapQueryLimit);
-
         const explainPayload: Record<string, any> = {
-          query: QueryView.wrapInExplainIfNeeded(actualQuery),
+          query: QueryView.wrapInExplainIfNeeded(queryString),
           resultFormat: 'object',
         };
 
-        if (!isEmptyContext(queryContext)) explainPayload.context = queryContext;
+        if (!isEmptyContext(queryContext) || wrapQueryLimit) {
+          explainPayload.context = Object.assign({}, queryContext || {});
+          explainPayload.context.sqlOuterLimit = wrapQueryLimit;
+        }
         const result = await queryDruidSql(explainPayload);
 
         return parseQueryPlan(result[0]['PLAN']);
@@ -354,7 +356,7 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
 
   prettyPrintJson(): void {
     this.setState(prevState => ({
-      queryString: Hjson.stringify(Hjson.parse(prevState.queryString)),
+      queryString: JSON.stringify(Hjson.parse(prevState.queryString), null, 2),
     }));
   }
 
@@ -523,6 +525,7 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
               onExplain={emptyQuery ? undefined : this.handleExplain}
               onHistory={() => this.setState({ historyDialogOpen: true })}
               onPrettier={() => this.prettyPrintJson()}
+              loading={loading}
             />
             {this.renderAutoRunSwitch()}
             {this.renderWrapQueryLimitSelector()}

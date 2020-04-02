@@ -24,7 +24,7 @@ sidebar_label: "Making native queries"
   -->
 
 
-> Apache Druid (incubating) supports two query languages: [Druid SQL](sql.md) and native queries. Druid SQL
+> Apache Druid supports two query languages: [Druid SQL](sql.md) and native queries. Druid SQL
 > queries are planned into native queries. This document describes the native query language.
 
 Native queries in Druid are JSON objects and are typically issued to the Broker or Router processes. Queries can be
@@ -108,6 +108,8 @@ If a query fails, you will get an HTTP 500 response containing a JSON object wit
   "host" : "druid1.example.com:8083"
 }
 ```
+
+If a query request fails due to being limited by the [query scheduler laning configuration](../configuration/index.md#broker), an HTTP 429 response with the same JSON object schema as an error response, but with `errorMessage` of the form: "Total query capacity exceeded" or "Query capacity exceeded for lane 'low'".
 
 The fields in the response are:
 

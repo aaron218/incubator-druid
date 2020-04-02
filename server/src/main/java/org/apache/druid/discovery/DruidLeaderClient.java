@@ -22,9 +22,7 @@ package org.apache.druid.discovery;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.apache.druid.client.selector.Server;
 import org.apache.druid.concurrent.LifecycleLock;
-import org.apache.druid.curator.discovery.ServerDiscoverySelector;
 import org.apache.druid.java.util.common.IOE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.RE;
@@ -68,12 +66,9 @@ public class DruidLeaderClient
 
   private final HttpClient httpClient;
   private final DruidNodeDiscoveryProvider druidNodeDiscoveryProvider;
-  private final NodeType nodeTypeToWatch;
+  private final NodeRole nodeRoleToWatch;
 
   private final String leaderRequestPath;
-
-  //Note: This is kept for back compatibility with pre 0.11.0 releases and should be removed in future.
-  private final ServerDiscoverySelector serverDiscoverySelector;
 
   private LifecycleLock lifecycleLock = new LifecycleLock();
   private DruidNodeDiscovery druidNodeDiscovery;
@@ -82,16 +77,14 @@ public class DruidLeaderClient
   public DruidLeaderClient(
       HttpClient httpClient,
       DruidNodeDiscoveryProvider druidNodeDiscoveryProvider,
-      NodeType nodeTypeToWatch,
-      String leaderRequestPath,
-      ServerDiscoverySelector serverDiscoverySelector
+      NodeRole nodeRoleToWatch,
+      String leaderRequestPath
   )
   {
     this.httpClient = httpClient;
     this.druidNodeDiscoveryProvider = druidNodeDiscoveryProvider;
-    this.nodeTypeToWatch = nodeTypeToWatch;
+    this.nodeRoleToWatch = nodeRoleToWatch;
     this.leaderRequestPath = leaderRequestPath;
-    this.serverDiscoverySelector = serverDiscoverySelector;
   }
 
   @LifecycleStart
@@ -102,7 +95,7 @@ public class DruidLeaderClient
     }
 
     try {
-      druidNodeDiscovery = druidNodeDiscoveryProvider.getForNodeType(nodeTypeToWatch);
+      druidNodeDiscovery = druidNodeDiscoveryProvider.getForNodeRole(nodeRoleToWatch);
       lifecycleLock.started();
       log.debug("Started.");
     }
@@ -303,16 +296,6 @@ public class DruidLeaderClient
   @Nullable
   private String pickOneHost()
   {
-    Server server = serverDiscoverySelector.pick();
-    if (server != null) {
-      return StringUtils.format(
-          "%s://%s:%s",
-          server.getScheme(),
-          server.getAddress(),
-          server.getPort()
-      );
-    }
-
     Iterator<DiscoveryDruidNode> iter = druidNodeDiscovery.getAllNodes().iterator();
     if (iter.hasNext()) {
       DiscoveryDruidNode node = iter.next();
